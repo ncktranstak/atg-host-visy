@@ -60,6 +60,18 @@ See **[docs/command-reference.pdf](docs/command-reference.pdf)** for the full
 command list, a decoded example exchange, raw-transmission recipes and
 troubleshooting.
 
+## Minimal example for developers
+
+[`examples/simple_host.py`](examples/simple_host.py) is the whole protocol in
+~150 heavily commented lines — no GUI, no threads: build request, verify
+checksum, decode tanks, print a table. Start there if you are integrating the
+gauge into your own software.
+
+```bash
+python examples/simple_host.py --demo        # runs without hardware
+python examples/simple_host.py --port COM3   # real gauge
+```
+
 ## Protocol notes
 
 Computer-format framing:
