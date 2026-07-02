@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ATG Host — Command Reference and Raw Transmission Guide</title>
+<link rel="stylesheet" href="thesis.css">
+<style>
+@page { @top-left { content: "ATG Host · Command Reference"; font-family: "Palatino Linotype", Georgia, serif; font-variant: small-caps; font-size: 8.5pt; color: #555; } }
+</style>
+<script src="paged.polyfill.js"></script>
+</head>
+<body>
+
+<div class="titlepage">
+  <div class="institution">Transtak &middot; DET Engineering</div>
+  <div class="rule"></div>
+  <div class="doctype">Technical Reference Document</div>
+  <h1>ATG Host:<br>Command Reference and<br>Raw Transmission Guide</h1>
+  <div class="subtitle">Sending TLS&#8209;350 computer-format commands and raw serial data
+  to a FAFNIR VISY&#8209;Command automatic tank gauge from the ATG Host application</div>
+  <div class="meta">
+    <div><span class="sc">Project</span> &nbsp;atg-host-visy</div>
+    <div><span class="sc">Application</span> &nbsp;atg_host.py &nbsp;&middot;&nbsp; <span class="sc">Protocol</span> &nbsp;Veeder&#8209;Root TLS&#8209;350 computer format</div>
+    <div><span class="sc">Document revision</span> &nbsp;1.0 &nbsp;&middot;&nbsp; July 2026</div>
+  </div>
+</div>
+
+<div class="abstract">
+  <h2>Abstract</h2>
+  <p>ATG Host is a desktop application that communicates with a FAFNIR VISY&#8209;Command
+  automatic tank gauge over its RS&#8209;232/RS&#8209;485 host interface using the
+  Veeder&#8209;Root TLS&#8209;350 <i>computer format</i>. Besides the built-in inventory and
+  delivery polls, the application provides a manual command box that accepts any function
+  code &mdash; and, using the <code>hex:</code> and <code>text:</code> prefixes, arbitrary
+  raw data that is transmitted on the wire exactly as entered, without framing. This
+  document specifies all three input forms, dissects the protocol frames with a fully
+  decoded example exchange, lists the available commands, and gives ready-to-paste
+  recipes for common diagnostic tasks.</p>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#c1">The Command Panel</a></li>
+    <li><a href="#c2">Command Entry Forms</a>
+      <ol>
+        <li><a href="#c2-1">Function-code form (framed automatically)</a></li>
+        <li><a href="#c2-2">Raw hexadecimal form — <code>hex:</code></a></li>
+        <li><a href="#c2-3">Raw text form — <code>text:</code></a></li>
+      </ol>
+    </li>
+    <li><a href="#c3">Frame Anatomy and a Decoded Exchange</a></li>
+    <li><a href="#c4">Command List</a></li>
+    <li><a href="#c5">Raw Transmission Recipes</a></li>
+    <li><a href="#c6">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<h2 class="sec" id="c1">The Command Panel</h2>
+
+<p>The left column of the main window contains the <i>Commands</i> group with three
+controls:</p>
+
+<ul>
+  <li><b>Inventory (i201)</b> &mdash; sends an in-tank inventory request for the tank
+  selected in the <i>Polling</i> group (<i>All tanks</i> &rarr; <code>i20100</code>,
+  <i>Tank&nbsp;3</i> &rarr; <code>i20103</code>, &hellip;) and fills the
+  <i>Tanks</i> tab from the reply.</li>
+  <li><b>Deliveries (i202)</b> &mdash; the same for the delivery report; results appear
+  in the <i>Deliveries</i> tab.</li>
+  <li><b>Manual command box</b> &mdash; a free-form text box. Type an entry, press
+  <span class="mono">Enter</span> or click <i>Send</i>. This box is the subject of this
+  document.</li>
+</ul>
+
+<p>Every transmission and every received frame is echoed in the <i>Console</i> tab with a
+millisecond timestamp, direction marker (<span class="mono">TX</span>/<span
+class="mono">RX</span>) and the frame content. Control characters are shown symbolically
+(<span class="mono">&lt;SOH&gt;</span>, <span class="mono">&lt;ETX&gt;</span>); ticking
+<i>Hex view</i> switches the console to a space-separated hexadecimal byte dump &mdash;
+the recommended view when working with raw data. <i>Save log&hellip;</i> writes the
+console content to a text file.</p>
+
+<p>All entry forms work identically against real hardware and in <i>Demo mode</i>: the
+built-in simulator answers correctly framed requests it understands and replies with the
+standard rejection frame (&sect;3) to anything else, so raw-data experiments can be
+rehearsed safely without a gauge attached.</p>
+
+<h2 class="sec" id="c2">Command Entry Forms</h2>
+
+<p>The manual box distinguishes three input forms by prefix. Whitespace around the entry
+is ignored; the prefixes are case-insensitive.</p>
+
+<div class="tablewrap">
+<div class="caption">Input forms of the manual command box.</div>
+<table>
+<tr><th>Form</th><th>Example entry</th><th>Bytes on the wire</th></tr>
+<tr><td>Function code</td><td><code>i20100</code></td><td><span class="mono">SOH</span> + entry + <span class="mono">ETX</span> (framed automatically)</td></tr>
+<tr><td>Raw hexadecimal</td><td><code>hex:01 69 32 30 31 30 30 03</code></td><td>exactly the bytes given, no framing</td></tr>
+<tr><td>Raw text</td><td><code>text:&lt;SOH&gt;i20100&lt;ETX&gt;</code></td><td>the ASCII characters given, no framing</td></tr>
+</table>
+</div>
+
+<h3 id="c2-1">Function-code form (framed automatically)</h3>
+
+<p>An entry without a prefix is treated as a TLS&#8209;350 function code. The application
+wraps it in the protocol's frame delimiters &mdash; SOH (<span class="mono">0x01</span>)
+in front, ETX (<span class="mono">0x03</span>) behind &mdash; and transmits it. Typing
+<code>i20100</code> is therefore exactly equivalent to pressing the
+<i>Inventory (i201)</i> button with <i>All tanks</i> selected. This is the everyday form:
+you supply the six-character function code, the software supplies the framing.</p>
+
+<h3 id="c2-2">Raw hexadecimal form — <code>hex:</code></h3>
+
+<p>An entry starting with <code>hex:</code> is parsed as hexadecimal byte pairs and sent
+<i>verbatim</i> &mdash; no SOH, no ETX, no validation of any kind is added. Spaces and
+commas between pairs are ignored, so all of the following are the same eight bytes:</p>
+
+<div class="listing">
+<pre><code>hex:01 69 32 30 31 30 30 03
+hex:0169323031303003
+hex:01,69,32,30,31,30,30,03</code></pre>
+<div class="caption">Equivalent <code>hex:</code> entries for the framed inventory request.</div>
+</div>
+
+<p>Because the frame delimiters are under your control in this form, you must include
+them yourself when you intend to send a valid request (note the leading
+<span class="mono">01</span> and trailing <span class="mono">03</span> above). Omitting
+them is equally legitimate &mdash; that is precisely how you test how the gauge treats
+line noise or fragmentary frames. An odd number of hex digits or a non-hex character is
+reported as <span class="mono">!!&nbsp;invalid hex string</span> and nothing is sent.</p>
+
+<h3 id="c2-3">Raw text form — <code>text:</code></h3>
+
+<p>An entry starting with <code>text:</code> sends the following characters as ASCII,
+again without any automatic framing. Two symbolic escapes are replaced before
+transmission, so the control characters can be typed on a keyboard:</p>
+
+<div class="tablewrap">
+<div class="caption">Escapes recognised in <code>text:</code> mode.</div>
+<table>
+<tr><th>Escape</th><th>Byte</th><th>Meaning</th></tr>
+<tr><td><code>&lt;SOH&gt;</code></td><td><span class="mono">0x01</span></td><td>start of header (frame open)</td></tr>
+<tr><td><code>&lt;ETX&gt;</code></td><td><span class="mono">0x03</span></td><td>end of text (frame close)</td></tr>
+</table>
+</div>
+
+<p>Thus <code>text:&lt;SOH&gt;i20100&lt;ETX&gt;</code> is byte-identical to the framed
+form and to the first <code>hex:</code> example, while <code>text:i20100</code> sends the
+six naked characters with no delimiters &mdash; which a compliant gauge silently ignores
+or rejects. Non-ASCII characters are refused with a console message; use
+<code>hex:</code> for arbitrary byte values.</p>
+
+<div class="note"><span class="nt">Note.</span> Raw entries are deliberately passed
+through untouched. The application will happily transmit malformed, truncated or
+oversized data &mdash; that is the point of the feature. The console is your record of
+exactly what was sent; keep <i>Hex view</i> enabled while experimenting.</div>
+
+<h2 class="sec" id="c3">Frame Anatomy and a Decoded Exchange</h2>
+
+<p>A computer-format <i>request</i> is minimal: the function code between the two frame
+delimiters. There is no checksum on requests.</p>
+
+<div class="tablewrap">
+<div class="caption">Request frame (8 bytes for a six-character function code).</div>
+<table>
+<tr><th>Bytes</th><th>Content</th></tr>
+<tr><td><span class="mono">01</span></td><td>SOH</td></tr>
+<tr><td><span class="mono">69 32 30 31 30 30</span></td><td><code>i20100</code> &mdash; function <code>i201</code>, tank <code>00</code> (all)</td></tr>
+<tr><td><span class="mono">03</span></td><td>ETX</td></tr>
+</table>
+</div>
+
+<p>The <i>response</i> repeats the function code, adds a timestamp
+(<code>YYMMDDHHmm</code>), the data records, the delimiter <code>&amp;&amp;</code> and a
+four-digit checksum: the 16-bit two's complement of the byte sum from SOH through
+<code>&amp;&amp;</code> inclusive, so that (sum&nbsp;+&nbsp;checksum) mod&nbsp;2<sup>16</sup>
+=&nbsp;0. The application verifies it on every reply and prints
+<span class="mono">!!&nbsp;checksum mismatch</span> when it fails. An unknown or
+unsupported function is answered with the rejection frame
+<span class="mono">&lt;SOH&gt;9999FF1B&lt;ETX&gt;</span>.</p>
+
+<p>The following exchange was captured from the application (demo mode, one tank); it is
+shown exactly as the console logs it:</p>
+
+<div class="listing">
+<pre><code>TX  &lt;SOH&gt;i20100&lt;ETX&gt;
+RX  &lt;SOH&gt;i2010026070216450110000007 464D767C 464DAB1A 4683A4C2
+    4488F9A8 3E94597A 416172F0 405E8637 &amp;&amp;EE42&lt;ETX&gt;</code></pre>
+<div class="caption">A complete inventory exchange. The response is one contiguous
+frame on the wire; spaces are inserted here at field boundaries for readability, and
+each element is decoded in Table 4.</div>
+</div>
+
+<div class="tablewrap">
+<div class="caption">Decoding of the response above.</div>
+<table>
+<tr><th>Chars</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>i20100</code></td><td>&nbsp;</td><td>function echo</td></tr>
+<tr><td><code>2607021645</code></td><td>2026-07-02 16:45</td><td>gauge timestamp</td></tr>
+<tr><td><code>01</code></td><td>tank 1</td><td>tank number</td></tr>
+<tr><td><code>1</code></td><td>product 1</td><td>product code</td></tr>
+<tr><td><code>0000</code></td><td>no bits set</td><td>tank status (bit 0 delivery, bit 1 leak test)</td></tr>
+<tr><td><code>07</code></td><td>7</td><td>number of data fields</td></tr>
+<tr><td><code>464D767C</code></td><td>13 149.62</td><td>volume, L</td></tr>
+<tr><td><code>464DAB1A</code></td><td>13 162.78</td><td>TC volume, L</td></tr>
+<tr><td><code>4683A4C2</code></td><td>16 850.38</td><td>ullage, L</td></tr>
+<tr><td><code>4488F9A8</code></td><td>1 095.80</td><td>product height, mm</td></tr>
+<tr><td><code>3E94597A</code></td><td>0.29</td><td>water height, mm</td></tr>
+<tr><td><code>416172F0</code></td><td>14.09</td><td>temperature, &deg;C</td></tr>
+<tr><td><code>405E8637</code></td><td>3.48</td><td>water volume, L</td></tr>
+<tr><td><code>&amp;&amp;EE42</code></td><td>verifies</td><td>delimiter + checksum</td></tr>
+</table>
+</div>
+
+<p>Data fields are IEEE-754 single-precision floats transmitted as eight hexadecimal
+digits of the big-endian bit pattern. The <i>Tanks</i> and <i>Deliveries</i> tabs perform
+this decoding automatically for <code>i201</code>/<code>i202</code>; for any other
+function the raw payload remains visible in the console.</p>
+
+<h2 class="sec" id="c4">Command List</h2>
+
+<p>A function code has the form <code>iFFFTT</code>: three digits selecting the report,
+two digits addressing the tank. Tank <code>00</code> addresses all tanks; <code>01</code>
+to <code>16</code> address one tank.</p>
+
+<div class="tablewrap">
+<div class="caption">Commands parsed and displayed by ATG Host.</div>
+<table>
+<tr><th>Command</th><th>Report</th><th>Response payload (per tank)</th><th>Shown in</th></tr>
+<tr><td><code>i201TT</code></td><td>In-tank inventory</td><td>tank, product, status bits, 7 floats: volume, TC volume, ullage, height, water, temperature, water volume</td><td><i>Tanks</i> tab</td></tr>
+<tr><td><code>i202TT</code></td><td>In-tank delivery report</td><td>tank, product, delivery count; per delivery: start/end timestamps and 10 floats (start/end volume, TC volume, water, temperature, height)</td><td><i>Deliveries</i> tab</td></tr>
+</table>
+</div>
+
+<div class="tablewrap">
+<div class="caption">Further TLS-350 computer-format functions commonly implemented by
+compatible gauges. Support varies with the gauge model and the host code configured with
+VISY-Setup &mdash; probe them from the manual box; an unsupported function is answered
+with <span class="mono">9999FF1B</span> and does no harm.</div>
+<table>
+<tr><th>Command</th><th>Report</th></tr>
+<tr><td><code>i101TT</code></td><td>active alarm report</td></tr>
+<tr><td><code>i111TT</code></td><td>alarm history report</td></tr>
+<tr><td><code>i203TT</code></td><td>in-tank leak detect report</td></tr>
+<tr><td><code>i204TT</code></td><td>shift inventory report</td></tr>
+<tr><td><code>i205TT</code></td><td>in-tank status report</td></tr>
+</table>
+</div>
+
+<p>Responses to functions other than <code>i201</code>/<code>i202</code> are not decoded
+into tables, but the full frame &mdash; timestamp, payload and checksum verdict &mdash;
+is always available in the console, which makes the manual box a serviceable protocol
+explorer.</p>
+
+<h2 class="sec" id="c5">Raw Transmission Recipes</h2>
+
+<div class="tablewrap">
+<div class="caption">Ready-to-paste entries for common tasks.</div>
+<table>
+<tr><th>Task</th><th>Entry</th></tr>
+<tr><td>Inventory, all tanks (three equivalent forms)</td><td><code>i20100</code><br><code>hex:01 69 32 30 31 30 30 03</code><br><code>text:&lt;SOH&gt;i20100&lt;ETX&gt;</code></td></tr>
+<tr><td>Inventory, tank 2 only</td><td><code>i20102</code></td></tr>
+<tr><td>Deliveries, tank 1</td><td><code>i20201</code></td></tr>
+<tr><td>Probe whether the gauge implements the status report</td><td><code>i20500</code> &nbsp;(expect data or <span class="mono">9999FF1B</span>)</td></tr>
+<tr><td>Verify the gauge ignores unframed noise</td><td><code>hex:AA 55 AA 55</code> &nbsp;(expect no reply)</td></tr>
+<tr><td>Test partial-frame handling (SOH, no ETX)</td><td><code>hex:01 69 32 30 31</code> &nbsp;(expect no reply; complete normally afterwards)</td></tr>
+<tr><td>Send a frame with explicit control bytes</td><td><code>hex:01 &hellip;function&hellip; 03</code>, or <code>text:</code> with <code>&lt;SOH&gt;</code>/<code>&lt;ETX&gt;</code></td></tr>
+</table>
+</div>
+
+<div class="note warn"><span class="nt">Warning.</span> Raw mode can transmit anything,
+including byte sequences a gauge firmware may misinterpret. On a live station, restrict
+experiments to read-only report functions (<code>i&hellip;</code>); never improvise
+write or configuration commands against production equipment.</div>
+
+<h2 class="sec" id="c6">Troubleshooting</h2>
+
+<div class="tablewrap">
+<div class="caption">Console symptoms and their causes.</div>
+<table>
+<tr><th>Symptom</th><th>Cause and remedy</th></tr>
+<tr><td><span class="mono">RX &lt;SOH&gt;9999FF1B&lt;ETX&gt;</span></td><td>The gauge rejected the function: unknown code, unsupported report, or the entry was misspelt. Check the function code and the host protocol configured with VISY-Setup.</td></tr>
+<tr><td><span class="mono">!! checksum mismatch</span></td><td>The reply arrived corrupted &mdash; wrong baud rate/parity, cable interference, or a shared bus collision. Verify the line settings match the gauge (default 9600 8N1).</td></tr>
+<tr><td>no reply at all</td><td>Framing missing in a raw entry (SOH/ETX), wrong COM port, TX/RX swapped, or the host interface disabled on the gauge. The 1&nbsp;s stale-buffer flush will print any partial bytes that did arrive.</td></tr>
+<tr><td><span class="mono">!! invalid hex string</span></td><td>The <code>hex:</code> entry contains an odd digit count or non-hex characters; nothing was sent.</td></tr>
+<tr><td><span class="mono">!! text mode accepts ASCII only</span></td><td>The <code>text:</code> entry contains characters above 0x7F; use <code>hex:</code> instead.</td></tr>
+<tr><td>garbled console text</td><td>Binary reply bytes shown in character view &mdash; enable <i>Hex view</i>.</td></tr>
+</table>
+</div>
+
+<p>For the byte-level protocol reference (frame layout, checksum definition, field
+encodings) see the companion document <i>ATG Gateway Firmware: Design and
+Implementation</i>, &sect;3, in the <code>atg-esp32-gateway</code> repository.</p>
+
+</body>
+</html>

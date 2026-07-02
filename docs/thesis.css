@@ -1,0 +1,283 @@
+/* Thesis-style print stylesheet — shared by the ATG Gateway documents.
+   Rendered with Paged.js + headless Chrome. */
+
+@page {
+    size: A4;
+    margin: 26mm 24mm 28mm 24mm;
+
+    @bottom-center {
+        content: counter(page);
+        font-family: "Palatino Linotype", Georgia, serif;
+        font-size: 9.5pt;
+        color: #333;
+    }
+    @top-right {
+        content: string(sectitle);
+        font-family: "Palatino Linotype", Georgia, serif;
+        font-style: italic;
+        font-size: 8.5pt;
+        color: #555;
+    }
+    @top-left {
+        content: string(doctitle);
+        font-family: "Palatino Linotype", Georgia, serif;
+        font-variant: small-caps;
+        font-size: 8.5pt;
+        color: #555;
+    }
+}
+
+@page :first {
+    @bottom-center { content: none; }
+    @top-right     { content: none; }
+    @top-left      { content: none; }
+}
+
+@page toc-page {
+    @top-right { content: none; }
+}
+
+html {
+    font-size: 10.5pt;
+}
+
+body {
+    font-family: "Palatino Linotype", Georgia, "Times New Roman", serif;
+    color: #111;
+    line-height: 1.55;
+    text-rendering: optimizeLegibility;
+    counter-reset: sec fig tab lst;
+    margin: 0;
+}
+
+p { margin: 0 0 0.55em 0; text-align: justify; hyphens: auto; }
+p + p { text-indent: 0; }
+
+/* ---------- Title page ---------- */
+
+.titlepage {
+    page: first;
+    height: 235mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    page-break-after: always;
+    string-set: doctitle "";
+}
+.titlepage .institution {
+    font-variant: small-caps;
+    letter-spacing: 0.18em;
+    font-size: 11pt;
+    margin-top: 8mm;
+}
+.titlepage .rule {
+    width: 62%;
+    border-bottom: 0.6pt solid #111;
+    margin: 4mm 0;
+}
+.titlepage .doctype {
+    font-style: italic;
+    font-size: 11pt;
+    margin-top: 34mm;
+}
+.titlepage h1 {
+    font-size: 21pt;
+    font-weight: normal;
+    line-height: 1.3;
+    margin: 8mm 12mm 0 12mm;
+}
+.titlepage .subtitle {
+    font-size: 12.5pt;
+    font-style: italic;
+    color: #333;
+    margin: 6mm 18mm 0 18mm;
+    line-height: 1.45;
+}
+.titlepage .meta {
+    margin-top: auto;
+    font-size: 10.5pt;
+    line-height: 1.8;
+}
+.titlepage .meta .sc { font-variant: small-caps; letter-spacing: 0.08em; }
+
+/* ---------- Abstract ---------- */
+
+.abstract {
+    margin: 10mm 14mm 8mm 14mm;
+    page-break-after: always;
+}
+.abstract h2 {
+    text-align: center;
+    font-variant: small-caps;
+    font-weight: normal;
+    letter-spacing: 0.2em;
+    font-size: 12pt;
+    border: none;
+    margin-bottom: 5mm;
+}
+.abstract h2::before { content: none !important; }
+.abstract p { font-size: 10pt; }
+
+/* ---------- Table of contents ---------- */
+
+nav.toc {
+    page: toc-page;
+    page-break-after: always;
+}
+nav.toc h2 {
+    font-variant: small-caps;
+    font-weight: normal;
+    letter-spacing: 0.2em;
+    font-size: 13pt;
+    text-align: center;
+    margin-bottom: 8mm;
+}
+nav.toc h2::before { content: none !important; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; }
+nav.toc > ol > li { margin: 0.45em 0; }
+nav.toc ol ol { margin-left: 7mm; }
+nav.toc ol ol li { margin: 0.2em 0; font-size: 9.7pt; }
+nav.toc a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    overflow: hidden;
+}
+nav.toc a::after {
+    content: target-counter(attr(href url), page);
+    float: right;
+    font-style: normal;
+}
+
+/* ---------- Headings ---------- */
+
+h2.sec {
+    string-set: sectitle content(text);
+    counter-increment: sec;
+    counter-reset: subsec;
+    font-size: 14.5pt;
+    font-weight: bold;
+    margin: 1.6em 0 0.6em 0;
+    page-break-after: avoid;
+}
+h2.sec::before { content: counter(sec) "\2002"; }
+
+h3 {
+    counter-increment: subsec;
+    font-size: 11.5pt;
+    font-weight: bold;
+    margin: 1.2em 0 0.4em 0;
+    page-break-after: avoid;
+}
+h3::before { content: counter(sec) "." counter(subsec) "\2002"; }
+
+/* ---------- Code listings ---------- */
+
+pre {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 8.3pt;
+    line-height: 1.42;
+    background: #f7f6f3;
+    border: 0.5pt solid #ccc;
+    border-left: 2pt solid #888;
+    padding: 7pt 9pt;
+    margin: 0.7em 0 0.3em 0;
+    white-space: pre-wrap;
+    page-break-inside: avoid;
+}
+code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.88em;
+    background: #f4f3f0;
+    padding: 0 2pt;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.listing { page-break-inside: avoid; margin: 0.9em 0; }
+.listing .caption {
+    counter-increment: lst;
+    font-size: 8.8pt;
+    text-align: center;
+    color: #333;
+    margin-top: 2pt;
+}
+.listing .caption::before {
+    content: "Listing " counter(lst) ". ";
+    font-variant: small-caps;
+}
+
+/* ---------- Figures ---------- */
+
+figure {
+    margin: 1.1em 0;
+    text-align: center;
+    page-break-inside: avoid;
+}
+figure svg { max-width: 100%; }
+figcaption {
+    counter-increment: fig;
+    font-size: 8.8pt;
+    color: #333;
+    margin-top: 4pt;
+    text-align: center;
+}
+figcaption::before {
+    content: "Figure " counter(fig) ". ";
+    font-variant: small-caps;
+}
+
+/* ---------- Tables (booktabs style) ---------- */
+
+.tablewrap { page-break-inside: avoid; margin: 1em 0; }
+.tablewrap .caption {
+    counter-increment: tab;
+    font-size: 8.8pt;
+    text-align: center;
+    color: #333;
+    margin-bottom: 3pt;
+}
+.tablewrap .caption::before {
+    content: "Table " counter(tab) ". ";
+    font-variant: small-caps;
+}
+table {
+    border-collapse: collapse;
+    margin: 0 auto;
+    font-size: 9.2pt;
+    line-height: 1.35;
+}
+table th {
+    border-top: 1.1pt solid #111;
+    border-bottom: 0.55pt solid #111;
+    font-weight: bold;
+    padding: 3.5pt 7pt;
+    text-align: left;
+}
+table td {
+    padding: 3pt 7pt;
+    text-align: left;
+    vertical-align: top;
+}
+table tr:last-child td { border-bottom: 1.1pt solid #111; }
+table code { background: none; }
+
+/* ---------- Misc ---------- */
+
+ul, ol { margin: 0.3em 0 0.7em 0; padding-left: 1.6em; }
+li { margin: 0.18em 0; }
+
+.mono { font-family: Consolas, monospace; font-size: 0.9em; }
+
+.note {
+    font-size: 9.3pt;
+    border-left: 2pt solid #999;
+    background: #f7f6f3;
+    padding: 5pt 8pt;
+    margin: 0.8em 0;
+    page-break-inside: avoid;
+}
+.note .nt { font-variant: small-caps; letter-spacing: 0.06em; }
+
+.warn { border-left-color: #7a1f1f; }
+.warn .nt { color: #7a1f1f; }

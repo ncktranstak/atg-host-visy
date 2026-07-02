@@ -15,7 +15,9 @@ interface** (RS-232 or RS-485) of the VI-4 board and polls tank data using the
   height, water level, temperature and water volume for up to 16 tanks
 - **Delivery report (`i202`)** — start/end volumes and heights per delivery
 - **Auto-polling** with configurable interval (1 s … 1 h), single tank or all tanks
-- **Manual command entry** for any other TLS function code
+- **Manual command entry** for any other TLS function code, plus **raw data
+  transmission**: `hex:01 69 32 30 31 30 30 03` sends exact bytes, and
+  `text:<SOH>i20100<ETX>` sends unframed ASCII with control-character escapes
 - **Console** with timestamps, ASCII/hex view, TLS checksum verification,
   RX/TX byte counters and log export
 - **Demo mode** — built-in ATG simulator (4 tanks) for testing without hardware
@@ -51,7 +53,12 @@ python atg_host.py
    (or tick **Demo mode** to try the app without hardware).
 2. Press **Inventory (i201)** or enable **Auto-poll**.
 3. Watch raw traffic in the **Console** tab; send arbitrary function codes
-   with the manual command field (e.g. `i20100`).
+   with the manual command field (e.g. `i20100`), or raw bytes with the
+   `hex:` / `text:` prefixes.
+
+See **[docs/command-reference.pdf](docs/command-reference.pdf)** for the full
+command list, a decoded example exchange, raw-transmission recipes and
+troubleshooting.
 
 ## Protocol notes
 

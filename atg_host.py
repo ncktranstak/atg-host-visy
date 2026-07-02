@@ -9,7 +9,8 @@ VISY-Setup).
 Supported functions:
   i201 — In-tank inventory (volume, TC volume, ullage, height, water, temp)
   i202 — In-tank delivery report
-  Manual command entry for any other function code.
+  Manual command entry for any other function code, or raw bytes with the
+  "hex:" / "text:" prefixes (sent unframed, exactly as entered).
 
 A built-in demo simulator allows testing the UI without hardware.
 """
@@ -385,7 +386,12 @@ class MainWindow(QMainWindow):
         del_btn = QPushButton("Deliveries (i202)")
         del_btn.clicked.connect(self.poll_deliveries)
         self.manual_edit = QLineEdit()
-        self.manual_edit.setPlaceholderText("e.g. i20100")
+        self.manual_edit.setPlaceholderText("i20100  |  hex:01 69 32 …  |  text:i20100")
+        self.manual_edit.setToolTip(
+            "Function code (framed with SOH/ETX automatically), or raw data:\n"
+            "  hex:01 69 32 30 31 30 30 03   — bytes, sent exactly as given\n"
+            "  text:i20100                   — ASCII, sent without framing\n"
+            "In text mode, <SOH> and <ETX> insert the control characters.")
         self.manual_edit.returnPressed.connect(self.send_manual)
         manual_btn = QPushButton("Send")
         manual_btn.clicked.connect(self.send_manual)
@@ -535,21 +541,49 @@ class MainWindow(QMainWindow):
         self.send_function("i202" + self.tank_combo.currentData())
 
     def send_manual(self):
-        func = self.manual_edit.text().strip()
-        if func:
-            self.send_function(func)
+        entry = self.manual_edit.text().strip()
+        if not entry:
+            return
+        lowered = entry.lower()
+        if lowered.startswith("hex:"):
+            try:
+                data = bytes.fromhex(entry[4:].replace(",", " "))
+            except ValueError:
+                self.log("!! invalid hex string — use pairs like 01 69 32 30 31 30 30 03")
+                return
+            if not data:
+                self.log("!! nothing to send")
+                return
+            self.send_raw(data)
+        elif lowered.startswith("text:"):
+            text = entry[5:].replace("<SOH>", "\x01").replace("<ETX>", "\x03")
+            try:
+                self.send_raw(text.encode("ascii"))
+            except UnicodeEncodeError:
+                self.log("!! text mode accepts ASCII only — use hex: for other bytes")
+        else:
+            self.send_function(entry)
 
     def send_function(self, func: str):
-        frame = build_command(func)
+        try:
+            self.send_raw(build_command(func))
+        except UnicodeEncodeError:
+            self.log("!! function codes must be ASCII")
+
+    def send_raw(self, data: bytes):
         if self.simulator:
-            self.log_frame("TX", frame)
-            self.on_tx_bytes(len(frame))
+            self.log_frame("TX", data)
+            self.on_tx_bytes(len(data))
+            if data.startswith(SOH) and data.endswith(ETX):
+                func = data[1:-1].decode("ascii", errors="replace")
+            else:
+                func = ""  # unframed request — the gauge answers 9999
             reply = self.simulator.respond(func)
             QTimer.singleShot(120, lambda: (self.on_rx_bytes(len(reply)),
                                             self.on_frame(reply)))
         elif self.worker:
-            self.log_frame("TX", frame)
-            self.worker.send(frame)
+            self.log_frame("TX", data)
+            self.worker.send(data)
         else:
             self.log("!! not connected")
 
